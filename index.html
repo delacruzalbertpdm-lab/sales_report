@@ -55,10 +55,6 @@
           <i class="fa-solid fa-calendar-days"></i>
           <span>Sales Calendar</span>
         </li>
-        <li class="nav-item" data-tab="tab-discounts">
-          <i class="fa-solid fa-ticket"></i>
-          <span>Vouchers & Discounts</span>
-        </li>
         <li class="nav-item" data-tab="tab-explorer">
           <i class="fa-solid fa-table-list"></i>
           <span>Data Explorer</span>
@@ -662,89 +658,6 @@
         <!-- Selected Day Detail Inspector -->
         <div id="dayInspector">
           <!-- Dynamically populated in app.js -->
-        </div>
-      </section>
-
-      <!-- TAB: VOUCHERS & DISCOUNTS -->
-      <section class="tab-panel" id="tab-discounts">
-        <!-- Discounts Summary Stats Grid -->
-        <div class="kpi-grid">
-          <div class="kpi-card">
-            <div class="kpi-header">
-              <span class="kpi-title">Discount Confirmed Sales</span>
-              <div class="kpi-icon orange"><i class="fa-solid fa-ticket"></i></div>
-            </div>
-            <div class="kpi-value" id="kpi-disc-sales">₱6,548.00</div>
-            <div class="kpi-meta"><span class="trend-badge up" id="kpi-disc-sales-meta">₱7,430.00 Placed Sales</span></div>
-          </div>
-
-          <div class="kpi-card">
-            <div class="kpi-header">
-              <span class="kpi-title">Confirmed Discount Orders</span>
-              <div class="kpi-icon green"><i class="fa-solid fa-bag-shopping"></i></div>
-            </div>
-            <div class="kpi-value" id="kpi-disc-orders">21 Orders</div>
-            <div class="kpi-meta"><span class="trend-badge neutral" id="kpi-disc-orders-meta">22 Placed Orders</span></div>
-          </div>
-
-          <div class="kpi-card">
-            <div class="kpi-header">
-              <span class="kpi-title">Discount Units Sold</span>
-              <div class="kpi-icon blue"><i class="fa-solid fa-boxes-stacked"></i></div>
-            </div>
-            <div class="kpi-value" id="kpi-disc-units">44 Units</div>
-            <div class="kpi-meta"><span class="trend-badge up" id="kpi-disc-units-meta">45 Placed Units</span></div>
-          </div>
-
-          <div class="kpi-card">
-            <div class="kpi-header">
-              <span class="kpi-title">Sales Per Buyer</span>
-              <div class="kpi-icon red"><i class="fa-solid fa-user-tag"></i></div>
-            </div>
-            <div class="kpi-value" id="kpi-disc-aov">₱312.00</div>
-            <div class="kpi-meta"><span class="trend-badge up" id="kpi-disc-aov-meta">21 Discount Buyers</span></div>
-          </div>
-        </div>
-
-        <!-- Promotions Campaign Breakdown & Charts -->
-        <div class="charts-grid-2">
-          <div class="chart-card">
-            <div class="chart-header">
-              <div class="chart-title-group">
-                <h3><i class="fa-solid fa-tags" style="color: var(--shopee-orange); margin-right: 8px;"></i>Shopee Discount Campaigns & Vouchers</h3>
-                <p>Performance breakdown by promotion campaign (September 2026)</p>
-              </div>
-            </div>
-            <div class="table-responsive" style="padding: 16px;">
-              <table class="data-table">
-                <thead>
-                  <tr>
-                    <th>Promotion Name</th>
-                    <th>Period</th>
-                    <th>Confirmed Sales</th>
-                    <th>Orders</th>
-                    <th>Units</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody id="discountsTableBody">
-                  <!-- Rendered via JS -->
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div class="chart-card">
-            <div class="chart-header">
-              <div class="chart-title-group">
-                <h3>Daily Discount Sales & Orders Trend</h3>
-                <p>Tracking revenue generated via vouchers & promotions</p>
-              </div>
-            </div>
-            <div class="chart-container">
-              <canvas id="discountsTrendChart"></canvas>
-            </div>
-          </div>
         </div>
       </section>
 
