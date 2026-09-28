@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shopee Seller Analytics Dashboard - First Protect PH</title>
+
+  <!-- FontAwesome & Google Fonts -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="styles.css">
+
+  <!-- Chart.js CDN & SheetJS CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+
+<body>
+
+  <div class="app-container">
+
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+      <div class="brand-header">
+        <div class="brand-logo">S</div>
+        <div class="brand-title-group">
+          <div class="brand-title">Shopee Analytics</div>
+          <div class="brand-subtitle">Seller Platform</div>
+        </div>
+      </div>
+
+      <div class="nav-section-label">Main Views</div>
+      <ul class="nav-menu">
+        <li class="nav-item active" data-tab="tab-overview">
+          <i class="fa-solid fa-chart-pie"></i>
+          <span>Shop Overview</span>
+        </li>
+        <li class="nav-item" data-tab="tab-sales">
+          <i class="fa-solid fa-cart-shopping"></i>
+          <span>Sales & Orders</span>
+        </li>
+        <li class="nav-item" data-tab="tab-traffic">
+          <i class="fa-solid fa-users-viewfinder"></i>
+          <span>Traffic & Devices</span>
+        </li>
+        <li class="nav-item" data-tab="tab-sources">
+          <i class="fa-solid fa-bullhorn"></i>
+          <span>Traffic Sources</span>
+        </li>
+        <li class="nav-item" data-tab="tab-product">
+          <i class="fa-solid fa-box-archive"></i>
+          <span>Product Funnel</span>
+        </li>
+        <li class="nav-item" data-tab="tab-calendar">
+          <i class="fa-solid fa-calendar-days"></i>
+          <span>Sales Calendar</span>
+        </li>
+        <li class="nav-item" data-tab="tab-explorer">
+          <i class="fa-solid fa-table-list"></i>
+          <span>Data Explorer</span>
+        </li>
+        <li class="nav-item" data-tab="tab-import">
+          <i class="fa-solid fa-cloud-arrow-up"></i>
+          <span>Data Import Module</span>
+        </li>
+      </ul>
+
+      <div class="sidebar-footer">
+        <div class="shop-info-badge">
+          <div class="shop-avatar">FP</div>
+          <div class="shop-details">
+            <span class="shop-name">First Protect PH</span>
+            <span class="shop-date">Sep 01 - Sep 21, 2026</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Workspace -->
+    <main class="main-content">
+
+      <!-- Top Header -->
+      <header class="top-header">
+        <div class="page-title-group">
+          <h1 id="page-title">Shop Overview</h1>
+          <p id="page-subtitle">Comprehensive performance metrics & revenue analytics for Shopee Seller Store</p>
+        </div>
+        <div class="header-controls">
+          <div class="live-status-badge">
+            <i class="fa-solid fa-circle"></i>
+            <span>Live DB Connected</span>
+          </div>
+          <div class="platform-pill">
+            <i class="fa-solid fa-store" id="platform-icon" style="color: var(--shopee-orange);"></i>
+            <select id="platform-select" class="platform-dropdown">
+              <option value="shopee" selected>🟠 Shopee (First Protect PH)</option>
+              <option value="lazada">💙 Lazada (First Protect)</option>
+              <option value="tiktok">🎵 TikTok Shop (First Protect)</option>
+              <option value="all">🌐 All Platforms (Shopee + Lazada + TikTok)</option>
+            </select>
+          </div>
+          <div class="month-select-pill" style="display: flex; align-items: center; background: rgba(255, 255, 255, 0.9); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 4px 10px; gap: 6px;">
+            <i class="fa-regular fa-calendar" style="color: var(--shopee-orange);"></i>
+            <select id="header-month-select" onchange="onMonthFilterChange(this.value)" style="border: none; background: transparent; font-weight: 600; font-size: 13px; color: var(--text-primary); cursor: pointer; outline: none;">
+              <option value="all" selected>📅 All Months (Aug 01 – Sep 28, 2026)</option>
+              <option value="2026-08">🗓️ August 2026 (Previous Month)</option>
+              <option value="2026-09">🗓️ September 2026 (Current Month)</option>
+            </select>
+          </div>
+          <div class="date-pill">
+            <i class="fa-regular fa-calendar-days"></i>
+            <span>01/08/2026 – 23/09/2026</span>
+          </div>
+          <button class="action-btn" id="export-json-btn">
+            <i class="fa-solid fa-download"></i>
+            <span>Export Report</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- TAB 1: OVERVIEW -->
+      <section class="tab-panel active" id="tab-overview">
+        <!-- Month-over-Month Growth Comparison Banner -->
+        <div class="mom-comparison-card" style="background: linear-gradient(135deg, rgba(238, 77, 45, 0.06), rgba(59, 130, 246, 0.06)); border: 1px solid rgba(238, 77, 45, 0.2); border-radius: var(--radius-lg); padding: 20px 24px; margin-bottom: 24px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+            <div>
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <span class="badge" style="background: var(--shopee-orange); color: #fff; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 4px; text-transform: uppercase;">MoM Growth Comparison</span>
+                <h3 style="font-family: var(--font-heading); font-size: 18px; font-weight: 700; color: var(--text-primary); margin: 0;">August 2026 vs September 2026 Performance Analysis</h3>
+              </div>
+              <p style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">Comparing store revenue, order volume, and platform performance side-by-side</p>
+            </div>
+            <div style="display: flex; gap: 12px; align-items: center;">
+              <div style="background: #fff; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 8px 16px; text-align: center;">
+                <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">August Total</div>
+                <div style="font-size: 16px; font-weight: 700; color: var(--text-primary);" id="mom-aug-sales">₱73,121.19</div>
+              </div>
+              <div style="font-size: 20px; color: var(--text-muted); font-weight: 700;">➔</div>
+              <div style="background: #fff; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 8px 16px; text-align: center;">
+                <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">September Total</div>
+                <div style="font-size: 16px; font-weight: 700; color: var(--shopee-orange);" id="mom-sep-sales">₱90,363.34</div>
+              </div>
+              <div style="background: #ECFDF5; border: 1px solid #10B981; border-radius: var(--radius-md); padding: 8px 16px; text-align: center;" id="mom-growth-box">
+                <div style="font-size: 11px; color: #047857; text-transform: uppercase; font-weight: 700;">Total Growth</div>
+                <div style="font-size: 16px; font-weight: 800; color: #10B981;" id="mom-growth-val">+23.58% 🚀</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Platform Breakdown Row -->
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-top: 16px; padding-top: 16px; border-top: 1px dashed rgba(0,0,0,0.1);">
+            <div style="background: rgba(255,255,255,0.7); padding: 12px 14px; border-radius: var(--radius-md); border-left: 4px solid var(--shopee-orange);">
+              <div style="font-size: 12px; font-weight: 700; color: var(--shopee-orange); display: flex; align-items: center; justify-content: space-between;">
+                <span>🟠 Shopee Growth</span>
+                <span id="mom-shopee-badge" style="color: #10B981; font-weight: 800;">+61.52% 📈</span>
+              </div>
+              <div style="font-size: 13px; font-weight: 600; margin-top: 4px;" id="mom-shopee-val">Aug: ₱40,046.00 ➔ Sep: ₱64,680.00</div>
+              <div style="font-size: 11px; color: var(--text-muted);" id="mom-shopee-diff">Increase of +₱24,634.00</div>
+            </div>
+            <div style="background: rgba(255,255,255,0.7); padding: 12px 14px; border-radius: var(--radius-md); border-left: 4px solid #0284C7;">
+              <div style="font-size: 12px; font-weight: 700; color: #0284C7; display: flex; align-items: center; justify-content: space-between;">
+                <span>💙 Lazada Growth</span>
+                <span id="mom-lazada-badge" style="color: #EF4444; font-weight: 800;">-28.57% 📉</span>
+              </div>
+              <div style="font-size: 13px; font-weight: 600; margin-top: 4px;" id="mom-lazada-val">Aug: ₱25,569.39 ➔ Sep: ₱18,264.08</div>
+              <div style="font-size: 11px; color: var(--text-muted);" id="mom-lazada-diff">Difference of -₱7,305.31</div>
+            </div>
+            <div style="background: rgba(255,255,255,0.7); padding: 12px 14px; border-radius: var(--radius-md); border-left: 4px solid #FF0050;">
+              <div style="font-size: 12px; font-weight: 700; color: #FF0050; display: flex; align-items: center; justify-content: space-between;">
+                <span>🎵 TikTok Shop Growth</span>
+                <span id="mom-tiktok-badge" style="color: #F59E0B; font-weight: 800;">-1.15% ➖</span>
+              </div>
+              <div style="font-size: 13px; font-weight: 600; margin-top: 4px;" id="mom-tiktok-val">Aug: ₱7,505.80 ➔ Sep: ₱7,419.26</div>
+              <div style="font-size: 11px; color: var(--text-muted);" id="mom-tiktok-diff">Difference of -₱86.54</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Hero KPI Grid -->
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <span class="kpi-title">Paid Net Sales</span>
+              <div class="kpi-icon orange"><i class="fa-solid fa-coins"></i></div>
+            </div>
+            <div class="kpi-value" id="kpi-net-sales">₱50,283</div>
+            <div class="kpi-meta">
+              <span class="trend-badge up" id="kpi-net-sales-badge"><i class="fa-solid fa-arrow-trend-up"></i>
+                ₱49,006</span>
+              <span class="kpi-meta-text" id="kpi-net-sales-meta">Product Card Sales</span>
+            </div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <span class="kpi-title">Paid Orders</span>
+              <div class="kpi-icon green"><i class="fa-solid fa-bag-shopping"></i></div>
+            </div>
+            <div class="kpi-value" id="kpi-paid-orders">134</div>
+            <div class="kpi-meta">
+              <span class="trend-badge up" id="kpi-paid-orders-badge"><i class="fa-solid fa-check"></i> 138
+                Confirmed</span>
+              <span class="kpi-meta-text" id="kpi-paid-orders-meta">Orders processed</span>
+            </div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <span class="kpi-title">Store Visitors</span>
+              <div class="kpi-icon blue"><i class="fa-solid fa-eye"></i></div>
+            </div>
+            <div class="kpi-value" id="kpi-total-visitors">1,634</div>
+            <div class="kpi-meta">
+              <span class="trend-badge neutral" id="kpi-total-visitors-badge"><i class="fa-solid fa-mobile"></i>
+                5,085</span>
+              <span class="kpi-meta-text" id="kpi-total-visitors-meta">Total Page Views</span>
+            </div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <span class="kpi-title">Conversion Rate</span>
+              <div class="kpi-icon purple"><i class="fa-solid fa-chart-line"></i></div>
+            </div>
+            <div class="kpi-value" id="kpi-conversion">8.20%</div>
+            <div class="kpi-meta">
+              <span class="trend-badge up" id="kpi-conversion-badge"><i class="fa-solid fa-bullseye"></i> 8.45%</span>
+              <span class="kpi-meta-text" id="kpi-conversion-meta">Visit-to-Placed</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Overview Charts Grid -->
+        <div class="charts-grid-2">
+          <div class="chart-card">
+            <div class="chart-header">
+              <div class="chart-title-group">
+                <h3>Daily Revenue & Order Trend</h3>
+                <p id="overview-trend-desc">Track daily paid sales performance across the recorded date range</p>
+              </div>
+            </div>
+            <div class="chart-container">
+              <canvas id="overviewSalesChart"></canvas>
+            </div>
+          </div>
+
+          <div class="chart-card">
+            <div class="chart-header">
+              <div class="chart-title-group">
+                <h3>Revenue by Traffic Source</h3>
+                <p>Distribution of sales across channels</p>
+              </div>
+            </div>
+            <div class="chart-container">
+              <canvas id="overviewSourceDonut"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Conversion Funnel Section -->
+        <div class="charts-grid-equal">
+          <div class="chart-card">
+            <div class="chart-header">
+              <div class="chart-title-group">
+                <h3>Store Conversion Funnel</h3>
+                <p>Visitor journey from store visit to paid order</p>
+              </div>
+            </div>
+            <div class="funnel-container" id="overviewFunnel">
+              <!-- Rendered via JS -->
+            </div>
+          </div>
+
+          <div class="chart-card">
+            <div class="chart-header">
+              <div class="chart-title-group">
+                <h3>Shopee Rebates & Order Health</h3>
+                <p>Breakdown of Rebates, Cancellations & Order Statuses</p>
+              </div>
+            </div>
+            <div class="chart-container">
+              <canvas id="overviewRebateChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 2: SALES & ORDERS -->
+      <section class="tab-panel" id="tab-sales">
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <span class="kpi-title">Placed Order Sales</span>
+              <div class="kpi-icon orange"><i class="fa-solid fa-cart-arrow-down"></i></div>
+            </div>
+            <div class="kpi-value" id="kpi-placed-sales">₱56,050</div>
+            <div class="kpi-meta"><span class="trend-badge neutral" id="kpi-placed-sales-meta">140 Placed Buyers</span>
+            </div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <span class="kpi-title">Confirmed Sales</span>
+              <div class="kpi-icon green"><i class="fa-solid fa-circle-check"></i></div>
+            </div>
+            <div class="kpi-value" id="kpi-confirmed-sales">₱52,860</div>
+            <div class="kpi-meta"><span class="trend-badge up" id="kpi-confirmed-sales-meta">98.57%
+                Placed-to-Confirmed</span></div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <span class="kpi-title">Sales per Buyer</span>
+              <div class="kpi-icon blue"><i class="fa-solid fa-user-tag"></i></div>
+            </div>
+            <div class="kpi-value" id="kpi-sales-per-buyer">₱383.04</div>
+            <div class="kpi-meta"><span class="trend-badge neutral" id="kpi-sales-per-buyer-meta">Confirmed Order
+                AOV</span></div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <span class="kpi-title">Cancelled Sales Loss</span>
+              <div class="kpi-icon red"><i class="fa-solid fa-ban"></i></div>
+            </div>
+            <div class="kpi-value" id="kpi-cancelled-sales">₱1,005</div>
+            <div class="kpi-meta"><span class="trend-badge down" id="kpi-cancelled-sales-meta">4 Cancelled Orders</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="charts-grid-equal">
+          <div class="chart-card">
+            <div class="chart-header">
+              <div class="chart-title-group">
+                <h3>Placed vs Confirmed vs Paid Sales</h3>
+                <p>Comparison of order value across fulfillment stages</p>
+              </div>
+            </div>
+            <div class="chart-container">
+              <canvas id="salesComparisonChart"></canvas>
+            </div>
+          </div>
+
+          <div class="chart-card">
+            <div class="chart-header">
+              <div class="chart-title-group">
+                <h3>Daily Orders & Cancelled Orders</h3>
+                <p>Volume of completed vs cancelled transactions</p>
+              </div>
+            </div>
+            <div class="chart-container">
+              <canvas id="ordersCancelledChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 3: TRAFFIC & DEVICES -->
+      <section class="tab-panel" id="tab-traffic">
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <span class="kpi-title">Total Page Views</span>
+              <div class="kpi-icon blue"><i class="fa-solid fa-book-open"></i></div>
+            </div>
+            <div class="kpi-value" id="kpi-page-views">5,085</div>
+            <div class="kpi-meta"><span class="trend-badge neutral" id="kpi-page-views-meta">4.39 Avg Views /
+                Visitor</span></div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <span class="kpi-title">Unique Visitors</span>
+              <div class="kpi-icon purple"><i class="fa-solid fa-user-group"></i></div>
+            </div>
+            <div class="kpi-value" id="kpi-unique-visitors">1,158</div>
+            <div class="kpi-meta"><span class="trend-badge up" id="kpi-unique-visitors-meta">981 New / 177
+                Returning</span></div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <span class="kpi-title">Store Bounce Rate</span>
+              <div class="kpi-icon amber"><i class="fa-solid fa-person-walking-arrow-right"></i></div>
+            </div>
+            <div class="kpi-value" id="kpi-bounce-rate">27.81%</div>
+            <div class="kpi-meta"><span class="trend-badge neutral" id="kpi-bounce-rate-meta">00:01:01 Avg Time
+                Spent</span></div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <span class="kpi-title">New Followers</span>
+              <div class="kpi-icon green"><i class="fa-solid fa-user-plus"></i></div>
+            </div>
+            <div class="kpi-value" id="kpi-new-followers">27</div>
+            <div class="kpi-meta"><span class="trend-badge up" id="kpi-new-followers-meta">+27 Followers Gained</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="charts-grid-2">
+          <div class="chart-card">
+            <div class="chart-header">
+              <div class="chart-title-group">
+                <h3>Daily Page Views & Visitor Volume</h3>
+                <p>Tracking traffic trends over time</p>
+              </div>
+            </div>
+            <div class="chart-container">
+              <canvas id="trafficTrendChart"></canvas>
+            </div>
+          </div>
+
+          <div class="chart-card">
+            <div class="chart-header">
+              <div class="chart-title-group">
+                <h3>Traffic by Device (App vs PC)</h3>
+                <p>Shopee Mobile App vs Desktop Browser</p>
+              </div>
+            </div>
+            <div class="chart-container">
+              <canvas id="deviceDonutChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 4: TRAFFIC SOURCES -->
+      <section class="tab-panel" id="tab-sources">
+        <!-- Top Takeaways Grid -->
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <span class="kpi-title">Top Revenue Channel</span>
+              <div class="kpi-icon orange"><i class="fa-solid fa-store"></i></div>
+            </div>
+            <div class="kpi-value" id="kpi-src-top-channel">Organic Product Card</div>
+            <div class="kpi-meta"><span class="trend-badge up" id="kpi-src-top-channel-meta">₱49,006 (83.3%
+                Share)</span></div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <span class="kpi-title">Paid Ads Revenue</span>
+              <div class="kpi-icon blue"><i class="fa-solid fa-rectangle-ad"></i></div>
+            </div>
+            <div class="kpi-value" id="kpi-src-ads-rev">₱8,534</div>
+            <div class="kpi-meta"><span class="trend-badge up" id="kpi-src-ads-rev-meta">14.5% from Shopee Ads</span>
+            </div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <span class="kpi-title">Affiliate Sales</span>
+              <div class="kpi-icon purple"><i class="fa-solid fa-handshake"></i></div>
+            </div>
+            <div class="kpi-value" id="kpi-src-aff-rev">₱1,277</div>
+            <div class="kpi-meta"><span class="trend-badge neutral" id="kpi-src-aff-rev-meta">2.2% from
+                Affiliates</span></div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <span class="kpi-title">Organic Click Rate</span>
+              <div class="kpi-icon green"><i class="fa-solid fa-arrow-pointer"></i></div>
+            </div>
+            <div class="kpi-value" id="kpi-src-ctr">5.69% CTR</div>
+            <div class="kpi-meta"><span class="trend-badge up" id="kpi-src-ctr-meta">2,617 Clicks / 46k Views</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Channel Performance Leaderboard Table -->
+        <div class="table-card">
+          <div class="chart-header">
+            <div class="chart-title-group">
+              <h3><i class="fa-solid fa-ranking-star"
+                  style="color: var(--shopee-orange); margin-right: 8px;"></i>Traffic Channel Leaderboard</h3>
+              <p>Performance comparison across organic search, paid campaigns, affiliate marketing, live, and video</p>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Channel Name</th>
+                  <th>Revenue Generated</th>
+                  <th>Revenue Share</th>
+                  <th>Total Orders</th>
+                  <th>Conversion Rate</th>
+                  <th>Channel Type</th>
+                </tr>
+              </thead>
+              <tbody id="channelTableBody">
+                <!-- Dynamic content loaded via JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Charts Side-by-Side -->
+        <div class="charts-grid-equal">
+          <div class="chart-card">
+            <div class="chart-header">
+              <div class="chart-title-group">
+                <h3>Revenue Contribution by Channel</h3>
+                <p>Comparison of organic vs paid vs affiliate revenue</p>
+              </div>
+            </div>
+            <div class="chart-container">
+              <canvas id="sourcesBarChart"></canvas>
+            </div>
+          </div>
+
+          <div class="chart-card">
+            <div class="chart-header">
+              <div class="chart-title-group">
+                <h3>Organic Product Card Conversion Funnel</h3>
+                <p>Impressions (46,032) → Clicks (2,617) → Orders (128)</p>
+              </div>
+            </div>
+            <div class="chart-container">
+              <canvas id="sourcesCtrChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 5: PRODUCT FUNNEL -->
+      <section class="tab-panel" id="tab-product">
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <span class="kpi-title">Product Page Views</span>
+              <div class="kpi-icon blue"><i class="fa-solid fa-boxes-stacked"></i></div>
+            </div>
+            <div class="kpi-value" id="kpi-prod-views">4,680</div>
+            <div class="kpi-meta"><span class="trend-badge neutral" id="kpi-prod-views-meta">Views across store
+                items</span></div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <span class="kpi-title">Add-to-Cart Units</span>
+              <div class="kpi-icon orange"><i class="fa-solid fa-cart-plus"></i></div>
+            </div>
+            <div class="kpi-value" id="kpi-atc-units">680</div>
+            <div class="kpi-meta"><span class="trend-badge up" id="kpi-atc-units-meta">Cart Additions</span></div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <span class="kpi-title">Search Clicks</span>
+              <div class="kpi-icon green"><i class="fa-solid fa-magnifying-glass"></i></div>
+            </div>
+            <div class="kpi-value" id="kpi-search-clicks">860</div>
+            <div class="kpi-meta"><span class="trend-badge neutral" id="kpi-search-clicks-meta">In-app search
+                clicks</span></div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <span class="kpi-title">Product Likes</span>
+              <div class="kpi-icon red"><i class="fa-solid fa-heart"></i></div>
+            </div>
+            <div class="kpi-value" id="kpi-likes">65</div>
+            <div class="kpi-meta"><span class="trend-badge up" id="kpi-likes-meta">Favorites & Wishlists</span></div>
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-header">
+            <div class="chart-title-group">
+              <h3>Daily Product Page Views vs Add-To-Cart Units</h3>
+              <p>Tracking buyer interest & intent before purchase</p>
+            </div>
+          </div>
+          <div class="chart-container">
+            <canvas id="productFunnelChart"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 6: SALES CALENDAR -->
+      <section class="tab-panel" id="tab-calendar">
+        <!-- Calendar Summary Stats -->
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <span class="kpi-title">Selected Month</span>
+              <div class="kpi-icon blue"><i class="fa-solid fa-calendar"></i></div>
+            </div>
+            <div class="kpi-value" id="kpi-cal-month">September 2026</div>
+            <div class="kpi-meta"><span class="trend-badge neutral" id="kpi-cal-month-meta">21 Days Recorded</span>
+            </div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <span class="kpi-title">Monthly Total Sales</span>
+              <div class="kpi-icon orange"><i class="fa-solid fa-coins"></i></div>
+            </div>
+            <div class="kpi-value" id="kpi-cal-sales">₱50,283</div>
+            <div class="kpi-meta"><span class="trend-badge up" id="kpi-cal-sales-meta">Avg ₱2,394 / Day</span></div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <span class="kpi-title">Peak Sales Day</span>
+              <div class="kpi-icon red"><i class="fa-solid fa-fire"></i></div>
+            </div>
+            <div class="kpi-value" id="kpi-cal-peak">Sep 9 (₱10,480)</div>
+            <div class="kpi-meta"><span class="trend-badge up" id="kpi-cal-peak-meta">9.9 Mega Sale Peak</span></div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <span class="kpi-title">Total Orders</span>
+              <div class="kpi-icon green"><i class="fa-solid fa-bag-shopping"></i></div>
+            </div>
+            <div class="kpi-value" id="kpi-cal-orders">134 Orders</div>
+            <div class="kpi-meta"><span class="trend-badge up" id="kpi-cal-orders-meta">AOV: ₱375.25</span></div>
+          </div>
+        </div>
+
+        <!-- Monthly Calendar View -->
+        <div class="calendar-card">
+          <div class="calendar-header">
+            <div class="chart-title-group">
+              <h3><i class="fa-solid fa-calendar-days" style="color: var(--shopee-orange); margin-right: 8px;"></i>Daily
+                Sales Heatmap Calendar</h3>
+              <p>Click on any date to inspect full sales, order volume, visitors, and conversion metrics</p>
+            </div>
+            <div style="display: flex; gap: 16px; align-items: center;">
+              <div class="month-select-pill" style="display: flex; align-items: center; background: rgba(255, 255, 255, 0.9); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 4px 10px; gap: 6px;">
+                <i class="fa-regular fa-calendar-days" style="color: var(--shopee-orange);"></i>
+                <select id="calendar-month-select" style="border: none; background: transparent; font-weight: 600; font-size: 13px; color: var(--text-primary); cursor: pointer; outline: none;">
+                  <option value="2026-08">🗓️ August 2026 (Previous Month)</option>
+                  <option value="2026-09" selected>🗓️ September 2026 (Current Month)</option>
+                </select>
+              </div>
+              <div class="calendar-legend">
+                <span class="legend-item"><span class="legend-box heat-level-4"></span> High (> ₱5k)</span>
+                <span class="legend-item"><span class="legend-box heat-level-3"></span> Mid (₱2.5k - ₱5k)</span>
+                <span class="legend-item"><span class="legend-box heat-level-2"></span> Low-Mid (₱1k - ₱2.5k)</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 7-column Calendar Grid -->
+          <div class="calendar-grid" id="calendarGrid">
+            <!-- Dynamically populated in app.js -->
+          </div>
+        </div>
+
+        <!-- Selected Day Detail Inspector -->
+        <div id="dayInspector">
+          <!-- Dynamically populated in app.js -->
+        </div>
+      </section>
+
+      <!-- TAB 7: DATA EXPLORER -->
+      <section class="tab-panel" id="tab-explorer">
+        <div class="table-card">
+          <div class="table-header-row">
+            <div class="chart-title-group">
+              <h3>Daily Analytics Master Table</h3>
+              <p>Combined daily performance data from all 4 Shopee Excel files</p>
+            </div>
+            <div style="display: flex; gap: 12px; align-items: center;">
+              <div class="search-box">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="tableSearch" placeholder="Search by date or metric...">
+              </div>
+              <button class="action-btn" id="export-csv-btn">
+                <i class="fa-solid fa-file-csv"></i>
+                <span>Export CSV</span>
+              </button>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="data-table" id="masterTable">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Paid Sales (PHP)</th>
+                  <th>Paid Orders</th>
+                  <th>Visitors</th>
+                  <th>Page Views</th>
+                  <th>Add-to-Cart Units</th>
+                  <th>Conversion %</th>
+                  <th>Cancelled Orders</th>
+                </tr>
+              </thead>
+              <tbody id="masterTableBody">
+                <!-- Rendered via JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 8: DATA IMPORT MODULE -->
+      <section class="tab-panel" id="tab-import">
+        <div class="charts-grid-equal" style="grid-template-columns: 1.2fr 0.8fr;">
+          <!-- Dropzone Card -->
+          <div class="chart-card">
+            <div class="chart-header">
+              <div class="chart-title-group">
+                <h3><i class="fa-solid fa-cloud-arrow-up"
+                    style="color: var(--shopee-orange); margin-right: 8px;"></i>Dynamic Excel & CSV Data Importer</h3>
+                <p>Import raw analytics files from Shopee, Lazada, or TikTok Shop to update the dashboard instantly</p>
+              </div>
+            </div>
+
+            <div style="padding: 16px 24px;">
+              <div style="margin-bottom: 16px; display: flex; align-items: center; gap: 12px;">
+                <label style="font-weight: 600; font-size: 13px; color: var(--text-secondary);">Target Platform:</label>
+                <select id="import-target-platform" class="platform-dropdown"
+                  style="padding: 8px 14px; background: #FFF; border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-weight: 600;">
+                  <option value="auto" selected>✨ Auto-Detect Platform (Recommended)</option>
+                  <option value="shopee">🟠 Shopee (First Protect PH)</option>
+                  <option value="lazada">💙 Lazada (First Protect)</option>
+                  <option value="tiktok">🎵 TikTok Shop (First Protect)</option>
+                </select>
+              </div>
+
+              <!-- Drag & Drop Container -->
+              <div id="dropzone" class="import-dropzone">
+                <div class="dropzone-icon-box">
+                  <i class="fa-solid fa-file-excel"></i>
+                </div>
+                <h4 style="font-size: 16px; font-weight: 700; color: var(--text-primary); margin-bottom: 6px;">Drag &
+                  Drop Excel or CSV File Here</h4>
+                <p
+                  style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px; max-width: 400px; text-align: center;">
+                  Upload your downloaded Excel report (.xlsx, .xls, .csv). The system will automatically parse daily
+                  sales, orders, traffic, visitors, and conversion metrics.
+                </p>
+
+                <input type="file" id="excel-file-input" accept=".xlsx, .xls, .csv" style="display: none;">
+                <button class="action-btn" id="btn-browse-file" style="padding: 10px 20px; font-size: 14px;">
+                  <i class="fa-solid fa-folder-open"></i>
+                  <span>Browse Excel File</span>
+                </button>
+              </div>
+
+              <!-- Status Alert Notification Box -->
+              <div id="import-status-box" style="margin-top: 16px; display: none;"></div>
+            </div>
+          </div>
+
+          <!-- Dataset Status Card -->
+          <div class="chart-card">
+            <div class="chart-header">
+              <div class="chart-title-group">
+                <h3><i class="fa-solid fa-database" style="color: var(--info-blue); margin-right: 8px;"></i>Active
+                  Loaded Datasets</h3>
+                <p>Status of currently loaded platform datasets</p>
+              </div>
+              <div style="display: flex; gap: 8px;">
+                <button class="action-btn" id="clear-dataset-btn"
+                  style="background: #EF4444; color: #FFFFFF; font-size: 12px; padding: 6px 12px; font-weight: 600; border: none;">
+                  <i class="fa-solid fa-trash-can"></i> Back to Zero (Clear All Data)
+                </button>
+                <button class="action-btn" id="reset-dataset-btn"
+                  style="background: var(--bg-main); color: var(--text-primary); border: 1px solid var(--border-color); font-size: 12px; padding: 6px 12px;">
+                  <i class="fa-solid fa-rotate-left"></i> Reload Default JSON
+                </button>
+              </div>
+            </div>
+
+            <div style="padding: 16px 24px; display: flex; flex-direction: column; gap: 14px;" id="dataset-status-list">
+              <!-- Rendered via JS -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Format Specification & Template Downloads Card -->
+        <div class="table-card" style="margin-top: 24px;">
+          <div class="chart-header">
+            <div class="chart-title-group">
+              <h3><i class="fa-solid fa-file-circle-check"
+                  style="color: var(--success-green); margin-right: 8px;"></i>Supported File Formats & Templates</h3>
+              <p>Download sample CSV templates or check expected column definitions for custom imports</p>
+            </div>
+          </div>
+          <div style="padding: 20px 24px;">
+            <div class="charts-grid-equal" style="grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
+              <div
+                style="background: var(--bg-main); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                  <strong style="color: var(--shopee-orange);"><i class="fa-solid fa-store"></i> Shopee Reports (4
+                    Formats)</strong>
+                  <span class="badge badge-danger">Shopee (.xlsx)</span>
+                </div>
+                <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px; line-height: 1.5;">
+                  Supports <strong>4 Reference Files</strong>: <code>shopee-shop-stats</code> (Paid Order/Placed Order),
+                  <code>sales_overview</code>, <code>traffic_overview</code>, and <code>productoverview</code>.
+                </p>
+                <button class="action-btn" id="dl-shopee-template"
+                  style="width: 100%; justify-content: center; font-size: 12px; padding: 6px 12px;">
+                  <i class="fa-solid fa-download"></i> Sample Shopee Template
+                </button>
+              </div>
+
+              <div
+                style="background: var(--bg-main); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                  <strong style="color: #0284C7;"><i class="fa-solid fa-shopping-bag"></i> Lazada Report (1
+                    Format)</strong>
+                  <span class="badge badge-info">Lazada (.xls / .xlsx)</span>
+                </div>
+                <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px; line-height: 1.5;">
+                  Supports <strong>1 Reference File</strong>: <code>Business Advisor - Dashboard - Key Metrics</code>.
+                  Automatically parses Revenue, Visitors, Buyers & Orders.
+                </p>
+                <button class="action-btn" id="dl-lazada-template"
+                  style="width: 100%; justify-content: center; font-size: 12px; padding: 6px 12px; background: #0284C7;">
+                  <i class="fa-solid fa-download"></i> Sample Lazada Template
+                </button>
+              </div>
+
+              <div
+                style="background: var(--bg-main); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                  <strong style="color: #FF0050;"><i class="fa-solid fa-music"></i> TikTok Shop (2 Formats)</strong>
+                  <span class="badge badge-purple">TikTok (.xlsx)</span>
+                </div>
+                <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px; line-height: 1.5;">
+                  Supports <strong>2 Reference Files</strong>: <code>Shop Analytics Key metrics</code> and
+                  <code>Product Card Traffic Stats</code>. Auto-detects GMV & Orders.
+                </p>
+                <button class="action-btn" id="dl-tiktok-template"
+                  style="width: 100%; justify-content: center; font-size: 12px; padding: 6px 12px; background: #FF0050;">
+                  <i class="fa-solid fa-download"></i> Sample TikTok Template
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <script src="app.js?v=20260928_v2"></script>
+</body>
+
+</html>
