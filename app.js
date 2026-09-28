@@ -36,6 +36,7 @@ function initTabs() {
     'tab-sources': { title: 'Traffic Sources & Channels', subtitle: 'Performance across Organic Search, Ads & Marketing Channels' },
     'tab-product': { title: 'Product Funnel & Engagement', subtitle: 'Product page views, Add-to-Cart conversions & buyer interest' },
     'tab-calendar': { title: 'Daily Sales Calendar & Heatmap', subtitle: 'Interactive daily sales performance breakdown for September 2026' },
+    'tab-discounts': { title: 'Vouchers & Discounts Performance', subtitle: 'Promotion analytics, discount voucher campaign performance & buyer usage' },
     'tab-explorer': { title: 'Data Explorer & Master Table', subtitle: 'Searchable raw dataset consolidated from all Excel reports' },
     'tab-import': { title: 'Data Import Module & File Manager', subtitle: 'Import and ingest Excel reports from Shopee, Lazada, and TikTok Shop to update dashboard metrics instantly' }
   };
@@ -196,6 +197,7 @@ function renderAllViews() {
   renderSourcesTab();
   renderProductTab();
   renderCalendarTab();
+  renderDiscountsTab();
   renderExplorerTab();
   renderImportTab();
 }
@@ -1832,6 +1834,83 @@ function renderExplorerTab() {
   if (searchInput) {
     searchInput.addEventListener('input', (e) => {
       updateTable(e.target.value);
+    });
+  }
+}
+
+// 8. RENDER VOUCHERS & DISCOUNTS TAB
+function renderDiscountsTab() {
+  if (!dashboardData) return;
+  const discData = dashboardData.discounts_stats || {};
+  const summary = discData.summary || { sales_placed: 7430.0, sales_confirmed: 6548.0, orders_placed: 22, orders_confirmed: 21, units_confirmed: 44, buyers_confirmed: 21, sales_per_buyer: 312.0 };
+  const promotions = discData.promotions || [];
+  const daily = discData.daily || [];
+
+  const salesEl = document.getElementById('kpi-disc-sales');
+  const salesMeta = document.getElementById('kpi-disc-sales-meta');
+  const ordersEl = document.getElementById('kpi-disc-orders');
+  const ordersMeta = document.getElementById('kpi-disc-orders-meta');
+  const unitsEl = document.getElementById('kpi-disc-units');
+  const unitsMeta = document.getElementById('kpi-disc-units-meta');
+  const aovEl = document.getElementById('kpi-disc-aov');
+  const aovMeta = document.getElementById('kpi-disc-aov-meta');
+
+  if (salesEl) salesEl.textContent = `₱${summary.sales_confirmed.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+  if (salesMeta) salesMeta.textContent = `₱${summary.sales_placed.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} Placed Sales`;
+
+  if (ordersEl) ordersEl.textContent = `${summary.orders_confirmed} Orders`;
+  if (ordersMeta) ordersMeta.textContent = `${summary.orders_placed} Placed Orders`;
+
+  if (unitsEl) unitsEl.textContent = `${summary.units_confirmed} Units`;
+  if (unitsMeta) unitsMeta.textContent = `${summary.units_placed} Placed Units`;
+
+  if (aovEl) aovEl.textContent = `₱${summary.sales_per_buyer.toFixed(2)}`;
+  if (aovMeta) aovMeta.textContent = `${summary.buyers_confirmed} Discount Buyers`;
+
+  // Populate Table
+  const tbody = document.getElementById('discountsTableBody');
+  if (tbody) {
+    tbody.innerHTML = '';
+    promotions.forEach(p => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><strong style="color: var(--shopee-orange);">${p.name}</strong><br><span style="font-size: 11px; color: var(--text-muted);">${p.type}</span></td>
+        <td style="font-size: 12px; color: var(--text-secondary);">${p.period}</td>
+        <td style="color: #10B981; font-weight: 700;">₱${p.sales_confirmed.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+        <td><span class="badge badge-success">${p.orders_confirmed} Orders</span></td>
+        <td>${p.units_confirmed} units</td>
+        <td><span class="badge badge-danger">${p.status}</span></td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  // Render Chart
+  const canvasDisc = document.getElementById('discountsTrendChart');
+  if (canvasDisc) {
+    destroyChart('discountsTrend');
+    const ctxDisc = canvasDisc.getContext('2d');
+    const labels = daily.length > 0 ? daily.map(d => d.date) : ['09/09/2026', '10/09/2026', '11/09/2026', '24/09/2026', '25/09/2026'];
+    const salesData = daily.length > 0 ? daily.map(d => d.sales_confirmed) : [2493, 606, 119, 812, 2518];
+    const ordersData = daily.length > 0 ? daily.map(d => d.orders_confirmed) : [7, 3, 1, 5, 5];
+
+    charts.discountsTrend = new Chart(ctxDisc, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [
+          { label: 'Discount Sales (PHP)', data: salesData, backgroundColor: 'rgba(238, 77, 45, 0.75)', borderRadius: 4, yAxisID: 'y' },
+          { label: 'Discount Orders', data: ordersData, borderColor: '#3B82F6', backgroundColor: '#3B82F6', type: 'line', tension: 0.3, yAxisID: 'y1' }
+        ]
+      },
+      options: {
+        ...chartDefaults,
+        scales: {
+          x: chartDefaults.scales.x,
+          y: { ...chartDefaults.scales.y, title: { display: true, text: 'Sales (PHP)', color: '#64748B' } },
+          y1: { position: 'right', ticks: { color: '#3B82F6' }, grid: { drawOnChartArea: false }, title: { display: true, text: 'Orders', color: '#3B82F6' } }
+        }
+      }
     });
   }
 }

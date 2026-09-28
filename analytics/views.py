@@ -313,7 +313,8 @@ def get_analytics_json():
                 "aov": round(tot_tik_sales / tot_tik_orders, 2) if tot_tik_orders > 0 else 0.0
             },
             "daily": tiktok_daily
-        }
+        },
+        "discounts_stats": base_data.get('discounts_stats', {})
     }
 
     return response_payload
