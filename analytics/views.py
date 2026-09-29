@@ -4,7 +4,7 @@ import pandas as pd
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
-from .models import DailyMetric
+from .models import DailyMetric, IncomeTransaction
 
 def clean_num(val):
     if pd.isna(val) or val is None or val == '':
@@ -517,3 +517,475 @@ def reset_api(request):
         return JsonResponse({'success': True, 'message': 'Database reset complete! Reloaded initial dataset into SQLite.'})
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+
+def clean_order_no(val):
+    if pd.isna(val) or val is None:
+        return ''
+    s = str(val).strip()
+    if s in ['0', '0.0', '-1', '', 'nan', 'None']:
+        return ''
+    if s.endswith('.0'):
+        s = s[:-2]
+    return s
+
+def parse_and_save_income_excel(file_source, filename, platform='lazada'):
+    xl = pd.ExcelFile(file_source)
+
+    if platform == 'tiktok' or 'Order details' in xl.sheet_names:
+        sheet_to_read = 'Order details' if 'Order details' in xl.sheet_names else xl.sheet_names[0]
+        df = xl.parse(sheet_to_read)
+        if df.empty:
+            return 0, 0.0, 0.0
+
+        fee_cols = [
+            ('TikTok Shop commission fee', 'TikTok Shop Commission Fee', 'Platform Fee'),
+            ('Transaction fee', 'Transaction Fee', 'Platform Fee'),
+            ('Shipping service fee', 'Shipping Service Fee', 'Platform Fee'),
+            ('Seller growth fee', 'Seller Growth Fee', 'Platform Fee'),
+            ('Affiliate Commission', 'Affiliate Commission', 'Affiliate Fee'),
+            ('Affiliate partner commission', 'Affiliate Partner Commission', 'Affiliate Fee'),
+            ('Adjustment amount', 'Adjustment Amount', 'Adjustment')
+        ]
+
+        records_to_create = []
+        tot_gross = 0.0
+        tot_net = 0.0
+        stmt_name = f"TikTok Settlement ({filename})"
+
+        for idx, row in df.iterrows():
+            tx_type = str(row.get('Transaction type', '')).strip() if pd.notna(row.get('Transaction type')) else 'General'
+            ord_id = clean_order_no(row.get('Order/Adjustment ID'))
+            settled_time = row.get('Order settled time')
+            if pd.isna(settled_time) or not settled_time:
+                settled_time = row.get('Order created time')
+
+            if pd.isna(settled_time) or not settled_time:
+                continue
+
+            try:
+                d_obj = pd.to_datetime(str(settled_time).strip()).date()
+            except:
+                continue
+
+            rev = float(row.get('Total Revenue', 0)) if pd.notna(row.get('Total Revenue')) else 0.0
+            if rev > 0:
+                tot_gross += rev
+                tot_net += rev
+                records_to_create.append(IncomeTransaction(
+                    platform='tiktok',
+                    transaction_date=d_obj,
+                    transaction_type='Order Sales',
+                    fee_name='Order Gross Sales',
+                    transaction_number=ord_id,
+                    details=f"Order Sales Revenue for Order {ord_id}",
+                    amount=rev,
+                    statement=stmt_name,
+                    paid_status='paid',
+                    order_no=ord_id,
+                    source_file=filename
+                ))
+
+            for fcol, fname, fcat in fee_cols:
+                if fcol in row:
+                    fval = float(row.get(fcol, 0)) if pd.notna(row.get(fcol)) else 0.0
+                    if fval != 0:
+                        tot_net += fval
+                        actual_fname = fname
+                        actual_fcat = fcat
+                        if fcol == 'Adjustment amount' and tx_type.lower() == 'withholding tax':
+                            actual_fname = 'Withholding Tax'
+                            actual_fcat = 'Tax'
+                        records_to_create.append(IncomeTransaction(
+                            platform='tiktok',
+                            transaction_date=d_obj,
+                            transaction_type=actual_fcat,
+                            fee_name=actual_fname,
+                            transaction_number=ord_id,
+                            details=f"{actual_fname} for {ord_id}",
+                            amount=fval,
+                            statement=stmt_name,
+                            paid_status='paid',
+                            order_no=ord_id,
+                            source_file=filename
+                        ))
+
+        if records_to_create:
+            IncomeTransaction.objects.filter(platform='tiktok', source_file=filename).delete()
+            IncomeTransaction.objects.bulk_create(records_to_create)
+
+        return len(records_to_create), tot_gross, tot_net
+
+    # Default Lazada statement parser
+    sheet_to_read = xl.sheet_names[0]
+    for s in xl.sheet_names:
+        if 'transaction' in s.lower() or 'overview' in s.lower():
+            sheet_to_read = s
+            break
+
+    df = xl.parse(sheet_to_read)
+    if df.empty:
+        return 0, 0.0, 0.0
+
+    col_map = {}
+    for c in df.columns:
+        cl = str(c).strip().lower()
+        if 'transaction date' in cl or 'date' in cl:
+            col_map['date'] = c
+        elif 'transaction type' in cl or 'type' in cl:
+            col_map['type'] = c
+        elif 'fee name' in cl or 'fee' in cl:
+            col_map['fee'] = c
+        elif 'transaction number' in cl or 'transaction no' in cl:
+            col_map['tx_num'] = c
+        elif 'details' in cl:
+            col_map['details'] = c
+        elif 'seller sku' in cl:
+            col_map['seller_sku'] = c
+        elif 'lazada sku' in cl or ('sku' in cl and 'seller' not in cl):
+            col_map['lazada_sku'] = c
+        elif cl == 'amount' or ('amount' in cl and 'vat' not in cl and 'wht' not in cl):
+            col_map['amount'] = c
+        elif 'vat in amount' in cl or 'vat' in cl:
+            col_map['vat'] = c
+        elif 'wht amount' in cl or 'wht' in cl:
+            col_map['wht'] = c
+        elif 'statement' in cl:
+            col_map['statement'] = c
+        elif 'paid status' in cl or 'status' in cl:
+            col_map['paid_status'] = c
+        elif 'order no' in cl or 'order id' in cl or cl == 'order no.':
+            col_map['order_no'] = c
+        elif 'order item no' in cl:
+            col_map['item_no'] = c
+        elif 'order item status' in cl:
+            col_map['item_status'] = c
+        elif 'shipping provider' in cl:
+            col_map['shipping_provider'] = c
+        elif 'reference' in cl:
+            col_map['reference'] = c
+
+    records_to_create = []
+    tot_gross = 0.0
+    tot_net = 0.0
+
+    for idx, row in df.iterrows():
+        raw_d = row.get(col_map.get('date'))
+        if pd.isna(raw_d) or not raw_d:
+            continue
+        try:
+            d_obj = pd.to_datetime(str(raw_d).strip()).date()
+        except:
+            continue
+
+        amt = clean_num(row.get(col_map.get('amount'))) if col_map.get('amount') in row else 0.0
+        vat_amt = clean_num(row.get(col_map.get('vat'))) if col_map.get('vat') in row else 0.0
+        wht_amt = clean_num(row.get(col_map.get('wht'))) if col_map.get('wht') in row else 0.0
+
+        tx_type = str(row.get(col_map.get('type'), '')).strip() if col_map.get('type') in row and pd.notna(row.get(col_map.get('type'))) else 'General'
+        fee_name = str(row.get(col_map.get('fee'), '')).strip() if col_map.get('fee') in row and pd.notna(row.get(col_map.get('fee'))) else ''
+        tx_num = str(row.get(col_map.get('tx_num'), '')).strip() if col_map.get('tx_num') in row and pd.notna(row.get(col_map.get('tx_num'))) else ''
+        details = str(row.get(col_map.get('details'), '')).strip() if col_map.get('details') in row and pd.notna(row.get(col_map.get('details'))) else ''
+        s_sku = str(row.get(col_map.get('seller_sku'), '')).strip() if col_map.get('seller_sku') in row and pd.notna(row.get(col_map.get('seller_sku'))) else ''
+        l_sku = str(row.get(col_map.get('lazada_sku'), '')).strip() if col_map.get('lazada_sku') in row and pd.notna(row.get(col_map.get('lazada_sku'))) else ''
+        stmt = str(row.get(col_map.get('statement'), '')).strip() if col_map.get('statement') in row and pd.notna(row.get(col_map.get('statement'))) else ''
+        p_status = str(row.get(col_map.get('paid_status'), '')).strip() if col_map.get('paid_status') in row and pd.notna(row.get(col_map.get('paid_status'))) else 'paid'
+        ord_no = clean_order_no(row.get(col_map.get('order_no'))) if col_map.get('order_no') in row else ''
+        itm_no = clean_order_no(row.get(col_map.get('item_no'))) if col_map.get('item_no') in row else ''
+        itm_stat = str(row.get(col_map.get('item_status'), '')).strip() if col_map.get('item_status') in row and pd.notna(row.get(col_map.get('item_status'))) else ''
+        ship_prov = str(row.get(col_map.get('shipping_provider'), '')).strip() if col_map.get('shipping_provider') in row and pd.notna(row.get(col_map.get('shipping_provider'))) else ''
+        ref = str(row.get(col_map.get('reference'), '')).strip() if col_map.get('reference') in row and pd.notna(row.get(col_map.get('reference'))) else ''
+
+        if amt > 0 and ('sales' in tx_type.lower() or 'credit' in fee_name.lower()):
+            tot_gross += amt
+        tot_net += amt
+
+        records_to_create.append(IncomeTransaction(
+            platform=platform,
+            transaction_date=d_obj,
+            transaction_type=tx_type,
+            fee_name=fee_name,
+            transaction_number=tx_num,
+            details=details,
+            seller_sku=s_sku,
+            lazada_sku=l_sku,
+            amount=amt,
+            vat_in_amount=vat_amt,
+            wht_amount=wht_amt,
+            statement=stmt,
+            paid_status=p_status,
+            order_no=ord_no,
+            order_item_no=itm_no,
+            order_item_status=itm_stat,
+            shipping_provider=ship_prov,
+            reference=ref,
+            source_file=filename
+        ))
+
+    if records_to_create:
+        IncomeTransaction.objects.filter(platform=platform, source_file=filename).delete()
+        IncomeTransaction.objects.bulk_create(records_to_create)
+
+    return len(records_to_create), tot_gross, tot_net
+
+def auto_seed_income_if_empty():
+    from pathlib import Path
+
+    # 1. Lazada Income Auto-seed
+    if not IncomeTransaction.objects.filter(platform='lazada').exists():
+        possible_lazada = [
+            settings.BASE_DIR / 'income_lazada_sept.xlsx',
+            Path.home() / 'Downloads' / 'income_lazada_sept.xlsx'
+        ]
+        for p in possible_lazada:
+            if p.exists():
+                try:
+                    parse_and_save_income_excel(p, 'income_lazada_sept.xlsx', platform='lazada')
+                    print("Auto-seeded Lazada income from:", p)
+                    break
+                except Exception as e:
+                    print("Auto seed Lazada income error:", e)
+
+    # 2. TikTok Income Auto-seed
+    if not IncomeTransaction.objects.filter(platform='tiktok').exists():
+        possible_tiktok = [
+            settings.BASE_DIR / 'income_tiktok_sept.xlsx',
+            Path.home() / 'Downloads' / 'income_tiktok_sept.xlsx'
+        ]
+        for p in possible_tiktok:
+            if p.exists():
+                try:
+                    parse_and_save_income_excel(p, 'income_tiktok_sept.xlsx', platform='tiktok')
+                    print("Auto-seeded TikTok income from:", p)
+                    break
+                except Exception as e:
+                    print("Auto seed TikTok income error:", e)
+
+def get_income_json(platform='lazada', month_filter=None):
+    auto_seed_income_if_empty()
+    qs = IncomeTransaction.objects.all()
+    if platform and platform != 'all':
+        qs = qs.filter(platform=platform)
+
+    if month_filter and month_filter != 'all':
+        try:
+            parts = month_filter.split('-')
+            yr, mn = int(parts[0]), int(parts[1])
+            qs = qs.filter(transaction_date__year=yr, transaction_date__month=mn)
+        except:
+            pass
+
+    tx_list = list(qs)
+    if not tx_list:
+        return {
+            "summary": {
+                "gross_sales": 0.0,
+                "platform_fees": 0.0,
+                "refunds_deductions": 0.0,
+                "net_income": 0.0,
+                "paid_amount": 0.0,
+                "unpaid_amount": 0.0,
+                "total_orders": 0,
+                "total_transactions": 0
+            },
+            "fee_breakdown": [],
+            "transaction_type_breakdown": [],
+            "daily_trends": [],
+            "statements": [],
+            "transactions": []
+        }
+
+    tot_gross = 0.0
+    tot_fees = 0.0
+    tot_refunds = 0.0
+    tot_net = 0.0
+    tot_paid = 0.0
+    tot_unpaid = 0.0
+
+    order_numbers = set()
+    fee_map = {}
+    type_map = {}
+    daily_map = {}
+    stmt_map = {}
+
+    for t in tx_list:
+        amt = float(t.amount)
+        tot_net += amt
+
+        if t.order_no:
+            order_numbers.add(t.order_no)
+
+        p_stat = (t.paid_status or 'paid').lower()
+        if p_stat == 'paid':
+            tot_paid += amt
+        else:
+            tot_unpaid += amt
+
+        tx_type = t.transaction_type or 'Other'
+        fee_name = t.fee_name or tx_type
+
+        if 'refund' in tx_type.lower() or 'reversal' in fee_name.lower():
+            tot_refunds += amt
+        elif amt < 0 or 'fee' in tx_type.lower() or 'tax' in fee_name.lower():
+            tot_fees += amt
+        else:
+            tot_gross += amt
+
+        if fee_name not in fee_map:
+            fee_map[fee_name] = {'count': 0, 'amount': 0.0, 'type': tx_type}
+        fee_map[fee_name]['count'] += 1
+        fee_map[fee_name]['amount'] += amt
+
+        if tx_type not in type_map:
+            type_map[tx_type] = {'count': 0, 'amount': 0.0}
+        type_map[tx_type]['count'] += 1
+        type_map[tx_type]['amount'] += amt
+
+        d_str = t.transaction_date.strftime('%d/%m/%Y')
+        raw_d = t.transaction_date.strftime('%Y-%m-%d')
+        if raw_d not in daily_map:
+            daily_map[raw_d] = {
+                'date': d_str,
+                'raw_date': raw_d,
+                'gross_sales': 0.0,
+                'fees': 0.0,
+                'refunds': 0.0,
+                'net_income': 0.0,
+                'orders': set()
+            }
+        daily_map[raw_d]['net_income'] += amt
+        if amt < 0:
+            daily_map[raw_d]['fees'] += amt
+        else:
+            daily_map[raw_d]['gross_sales'] += amt
+        if t.order_no:
+            daily_map[raw_d]['orders'].add(t.order_no)
+
+        stmt_key = t.statement or 'Unassigned Statement'
+        if stmt_key not in stmt_map:
+            stmt_map[stmt_key] = {
+                'statement': stmt_key,
+                'paid_status': t.paid_status or 'paid',
+                'count': 0,
+                'gross_sales': 0.0,
+                'fees': 0.0,
+                'net_payout': 0.0,
+                'orders': set()
+            }
+        stmt_map[stmt_key]['count'] += 1
+        stmt_map[stmt_key]['net_payout'] += amt
+        if amt < 0:
+            stmt_map[stmt_key]['fees'] += amt
+        else:
+            stmt_map[stmt_key]['gross_sales'] += amt
+        if t.order_no:
+            stmt_map[stmt_key]['orders'].add(t.order_no)
+
+    fee_breakdown = []
+    base_calc_gross = tot_gross if tot_gross > 0 else 1.0
+    for fn, fval in fee_map.items():
+        fee_breakdown.append({
+            'fee_name': fn,
+            'count': fval['count'],
+            'amount': round(fval['amount'], 2),
+            'pct_of_gross': round((abs(fval['amount']) / base_calc_gross) * 100, 2)
+        })
+    fee_breakdown.sort(key=lambda x: abs(x['amount']), reverse=True)
+
+    type_breakdown = []
+    for tn, tval in type_map.items():
+        type_breakdown.append({
+            'transaction_type': tn,
+            'count': tval['count'],
+            'amount': round(tval['amount'], 2)
+        })
+    type_breakdown.sort(key=lambda x: abs(x['amount']), reverse=True)
+
+    daily_trends = []
+    for rk in sorted(daily_map.keys()):
+        item = daily_map[rk]
+        daily_trends.append({
+            'date': item['date'],
+            'raw_date': item['raw_date'],
+            'gross_sales': round(item['gross_sales'], 2),
+            'fees': round(item['fees'], 2),
+            'refunds': round(item['refunds'], 2),
+            'net_income': round(item['net_income'], 2),
+            'orders': len(item['orders'])
+        })
+
+    statements_list = []
+    for sk, sval in stmt_map.items():
+        statements_list.append({
+            'statement': sk,
+            'paid_status': sval['paid_status'],
+            'transaction_count': sval['count'],
+            'order_count': len(sval['orders']),
+            'gross_sales': round(sval['gross_sales'], 2),
+            'fees': round(sval['fees'], 2),
+            'net_payout': round(sval['net_payout'], 2)
+        })
+
+    tx_rows = []
+    for t in tx_list[:500]:
+        tx_rows.append({
+            'date': t.transaction_date.strftime('%d/%m/%Y'),
+            'order_no': t.order_no or '-',
+            'seller_sku': t.seller_sku or '-',
+            'transaction_type': t.transaction_type,
+            'fee_name': t.fee_name or t.transaction_type,
+            'amount': float(t.amount),
+            'paid_status': t.paid_status or 'paid',
+            'statement': t.statement or '-'
+        })
+
+    return {
+        "summary": {
+            "gross_sales": round(tot_gross, 2),
+            "platform_fees": round(tot_fees, 2),
+            "refunds_deductions": round(tot_refunds, 2),
+            "net_income": round(tot_net, 2),
+            "paid_amount": round(tot_paid, 2),
+            "unpaid_amount": round(tot_unpaid, 2),
+            "total_orders": len(order_numbers),
+            "total_transactions": len(tx_list)
+        },
+        "fee_breakdown": fee_breakdown,
+        "transaction_type_breakdown": type_breakdown,
+        "daily_trends": daily_trends,
+        "statements": statements_list,
+        "transactions": tx_rows
+    }
+
+def income_api(request):
+    platform = request.GET.get('platform', 'lazada').lower()
+    month = request.GET.get('month', 'all')
+    data = get_income_json(platform=platform, month_filter=month)
+    return JsonResponse(data, safe=False)
+
+@csrf_exempt
+def import_income_api(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST method required'}, status=405)
+
+    uploaded_file = request.FILES.get('file')
+    platform = request.POST.get('platform', 'lazada').lower()
+
+    if not uploaded_file:
+        return JsonResponse({'error': 'No file uploaded'}, status=400)
+
+    try:
+        count, gross, net = parse_and_save_income_excel(uploaded_file, uploaded_file.name, platform=platform)
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully imported {count} income transactions from {uploaded_file.name}!',
+            'platform': platform,
+            'filename': uploaded_file.name,
+            'rows_loaded': count,
+            'total_gross': round(gross, 2),
+            'net_income': round(net, 2)
+        })
+    except Exception as e:
+        print("Import Income Error:", e)
+        return JsonResponse({'error': f'Failed to process income file: {str(e)}'}, status=500)
+

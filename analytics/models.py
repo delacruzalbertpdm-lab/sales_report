@@ -35,3 +35,39 @@ class DailyMetric(models.Model):
 
     def __str__(self):
         return f"[{self.platform.upper()}] {self.date}: ₱{self.sales} ({self.orders} orders)"
+
+
+class IncomeTransaction(models.Model):
+    PLATFORM_CHOICES = [
+        ('lazada', 'Lazada'),
+        ('shopee', 'Shopee'),
+        ('tiktok', 'TikTok Shop'),
+    ]
+
+    platform = models.CharField(max_length=20, choices=PLATFORM_CHOICES, default='lazada', db_index=True)
+    transaction_date = models.DateField(db_index=True)
+    transaction_type = models.CharField(max_length=100, db_index=True)
+    fee_name = models.CharField(max_length=150, blank=True, null=True, db_index=True)
+    transaction_number = models.CharField(max_length=100, blank=True, null=True)
+    details = models.TextField(blank=True, null=True)
+    seller_sku = models.CharField(max_length=150, blank=True, null=True, db_index=True)
+    lazada_sku = models.CharField(max_length=150, blank=True, null=True)
+    amount = models.DecimalField(max_digits=12, decimal_places=2, default=0.0)
+    vat_in_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0.0)
+    wht_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0.0)
+    statement = models.CharField(max_length=150, blank=True, null=True, db_index=True)
+    paid_status = models.CharField(max_length=50, blank=True, null=True, db_index=True)
+    order_no = models.CharField(max_length=100, blank=True, null=True, db_index=True)
+    order_item_no = models.CharField(max_length=100, blank=True, null=True)
+    order_item_status = models.CharField(max_length=100, blank=True, null=True)
+    shipping_provider = models.CharField(max_length=100, blank=True, null=True)
+    reference = models.CharField(max_length=100, blank=True, null=True)
+    source_file = models.CharField(max_length=255, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-transaction_date', 'order_no']
+
+    def __str__(self):
+        return f"[{self.platform.upper()}] {self.transaction_date} - {self.transaction_type} ({self.fee_name}): ₱{self.amount}"
+

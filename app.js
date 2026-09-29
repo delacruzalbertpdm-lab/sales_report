@@ -19,7 +19,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   initPlatformSelector();
   initMonthSelector();
   initImportModule();
+  initIncomeModule();
   await loadData();
+  await loadIncomeData();
 });
 
 // Tab Navigation Logic
@@ -36,6 +38,7 @@ function initTabs() {
     'tab-sources': { title: 'Traffic Sources & Channels', subtitle: 'Performance across Organic Search, Ads & Marketing Channels' },
     'tab-product': { title: 'Product Funnel & Engagement', subtitle: 'Product page views, Add-to-Cart conversions & buyer interest' },
     'tab-calendar': { title: 'Daily Sales Calendar & Heatmap', subtitle: 'Interactive daily sales performance breakdown for September 2026' },
+    'tab-income': { title: 'My Income & Financial Settlement', subtitle: 'Payout reconciliation, Lazada commissions, voucher subsidies, and net profit settlements' },
     'tab-explorer': { title: 'Data Explorer & Master Table', subtitle: 'Searchable raw dataset consolidated from all Excel reports' },
     'tab-import': { title: 'Data Import Module & File Manager', subtitle: 'Import and ingest Excel reports from Shopee, Lazada, and TikTok Shop to update dashboard metrics instantly' }
   };
@@ -54,6 +57,10 @@ function initTabs() {
       if (titles[tabId]) {
         if (pageTitle) pageTitle.textContent = titles[tabId].title;
         if (pageSubtitle) pageSubtitle.textContent = titles[tabId].subtitle;
+      }
+
+      if (tabId === 'tab-income') {
+        loadIncomeData();
       }
     });
   });
@@ -2352,4 +2359,421 @@ function downloadFile(content, fileName, mimeType) {
   a.remove();
   URL.revokeObjectURL(url);
 }
+
+// ==========================================
+// MY INCOME MODULE LOGIC
+// ==========================================
+
+let currentIncomeData = null;
+let currentIncomePlatform = 'lazada';
+
+async function loadIncomeData() {
+  try {
+    const month = getCurrentMonthFilter();
+    const res = await fetch(`/api/income/?platform=${currentIncomePlatform}&month=${month}`);
+    if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+    const data = await res.json();
+    currentIncomeData = data;
+    renderIncomeModule(data);
+  } catch (e) {
+    console.error('Error loading income data:', e);
+  }
+}
+
+function renderIncomeModule(data) {
+  if (!data) return;
+  const summary = data.summary || {};
+  
+  const formatCurrency = (val) => {
+    const num = parseFloat(val) || 0;
+    const sign = num < 0 ? '-' : '';
+    return `${sign}₱${Math.abs(num).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
+  const netEl = document.getElementById('income-kpi-net');
+  if (netEl) netEl.textContent = formatCurrency(summary.net_income);
+
+  const grossEl = document.getElementById('income-kpi-gross');
+  if (grossEl) grossEl.textContent = formatCurrency(summary.gross_sales);
+
+  const ordersCountEl = document.getElementById('income-kpi-orders-count');
+  if (ordersCountEl) ordersCountEl.textContent = `${summary.total_orders || 0} Orders`;
+
+  const feesEl = document.getElementById('income-kpi-fees');
+  if (feesEl) feesEl.textContent = formatCurrency(summary.platform_fees);
+
+  const feePctEl = document.getElementById('income-kpi-fee-pct');
+  if (feePctEl) {
+    const pct = summary.gross_sales > 0 ? (Math.abs(summary.platform_fees) / summary.gross_sales * 100).toFixed(2) : 0;
+    feePctEl.textContent = `${pct}% of Gross`;
+  }
+
+  const refundsEl = document.getElementById('income-kpi-refunds');
+  if (refundsEl) refundsEl.textContent = formatCurrency(summary.refunds_deductions);
+
+  const paidEl = document.getElementById('income-kpi-paid');
+  if (paidEl) paidEl.textContent = `${formatCurrency(summary.paid_amount)} Paid`;
+
+  const unpaidEl = document.getElementById('income-kpi-unpaid');
+  if (unpaidEl) unpaidEl.textContent = `${formatCurrency(summary.unpaid_amount)} Pending`;
+
+  const rowsBadge = document.getElementById('income-total-rows-badge');
+  if (rowsBadge) rowsBadge.textContent = `${summary.total_transactions || 0} Transactions Parsed`;
+
+  const activeFileEl = document.getElementById('income-active-filename');
+  if (activeFileEl) {
+    let filename = currentIncomePlatform === 'tiktok' ? 'income_tiktok_sept.xlsx' : (currentIncomePlatform === 'lazada' ? 'income_lazada_sept.xlsx' : 'Income Statement');
+    if (data.transactions && data.transactions.length > 0 && data.transactions[0].source_file) {
+      filename = data.transactions[0].source_file;
+    }
+    activeFileEl.textContent = filename;
+  }
+
+  renderIncomeTrendChart(data.daily_trends || []);
+  renderIncomeFeeChart(data.fee_breakdown || []);
+  renderIncomeFeeTable(data.fee_breakdown || [], summary.gross_sales || 1);
+  renderIncomeStatementsTable(data.statements || []);
+  renderIncomeTransactionsTable(data.transactions || []);
+}
+
+function renderIncomeTrendChart(dailyTrends) {
+  destroyChart('incomeTrend');
+  const ctx = document.getElementById('incomeTrendChart');
+  if (!ctx) return;
+
+  const labels = dailyTrends.map(d => d.date);
+  const grossData = dailyTrends.map(d => d.gross_sales);
+  const netData = dailyTrends.map(d => d.net_income);
+  const feesData = dailyTrends.map(d => Math.abs(d.fees));
+
+  charts['incomeTrend'] = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: 'Gross Sales (₱)',
+          data: grossData,
+          backgroundColor: 'rgba(2, 132, 199, 0.75)',
+          borderColor: '#0284c7',
+          borderWidth: 1,
+          borderRadius: 4
+        },
+        {
+          label: 'Net Payout Income (₱)',
+          data: netData,
+          type: 'line',
+          borderColor: '#10B981',
+          backgroundColor: 'rgba(16, 185, 129, 0.1)',
+          borderWidth: 3,
+          pointRadius: 4,
+          pointBackgroundColor: '#10B981',
+          tension: 0.3,
+          fill: true
+        },
+        {
+          label: 'Lazada Fees (₱)',
+          data: feesData,
+          backgroundColor: 'rgba(234, 88, 12, 0.65)',
+          borderColor: '#EA580C',
+          borderWidth: 1,
+          borderRadius: 4
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'top' },
+        tooltip: {
+          callbacks: {
+            label: function(ctx) {
+              return `${ctx.dataset.label}: ₱${ctx.raw.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: { grid: { display: false } },
+        y: {
+          beginAtZero: true,
+          ticks: {
+            callback: function(val) { return '₱' + val.toLocaleString(); }
+          }
+        }
+      }
+    }
+  });
+}
+
+function renderIncomeFeeChart(feeBreakdown) {
+  destroyChart('incomeFee');
+  const ctx = document.getElementById('incomeFeeChart');
+  if (!ctx) return;
+
+  const expenseFees = feeBreakdown.filter(f => f.amount < 0 || !['item price credit', 'sales'].some(k => (f.fee_name || '').toLowerCase().includes(k)));
+  const topFees = expenseFees.slice(0, 7);
+  
+  const labels = topFees.map(f => f.fee_name);
+  const dataVals = topFees.map(f => Math.abs(f.amount));
+
+  const palette = ['#0284c7', '#EA580C', '#8B5CF6', '#EF4444', '#F59E0B', '#10B981', '#64748B'];
+
+  charts['incomeFee'] = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: labels,
+      datasets: [{
+        data: dataVals,
+        backgroundColor: palette,
+        borderWidth: 2,
+        borderColor: '#ffffff'
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 } } },
+        tooltip: {
+          callbacks: {
+            label: function(ctx) {
+              const val = ctx.raw;
+              return `${ctx.label}: ₱${val.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+            }
+          }
+        }
+      },
+      cutout: '65%'
+    }
+  });
+}
+
+function renderIncomeFeeTable(feeBreakdown, grossSales) {
+  const tbody = document.getElementById('income-fee-breakdown-tbody');
+  const countBadge = document.getElementById('income-fee-types-count');
+  if (countBadge) countBadge.textContent = `${feeBreakdown.length} Fee Categories`;
+  if (!tbody) return;
+
+  const formatCurrency = (val) => {
+    const num = parseFloat(val) || 0;
+    const sign = num < 0 ? '-' : '';
+    return `${sign}₱${Math.abs(num).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
+  tbody.innerHTML = feeBreakdown.map(f => {
+    const isCredit = f.amount > 0;
+    const badgeStyle = isCredit 
+      ? 'background: #ECFDF5; color: #047857; font-weight: 700;' 
+      : 'background: #FFF7ED; color: #C2410C; font-weight: 700;';
+    const classification = isCredit ? 'Sales Credit Revenue' : 'Platform Fee / Deduction';
+    const amtColor = isCredit ? '#059669' : '#DC2626';
+
+    return `
+      <tr>
+        <td style="font-weight: 600; color: var(--text-primary);">
+          <i class="${isCredit ? 'fa-solid fa-arrow-down-left' : 'fa-solid fa-arrow-up-right'}" style="color: ${amtColor}; margin-right: 6px;"></i>
+          ${f.fee_name}
+        </td>
+        <td><span class="badge" style="${badgeStyle}">${classification}</span></td>
+        <td>${f.count} items</td>
+        <td style="font-weight: 700; color: ${amtColor};">${formatCurrency(f.amount)}</td>
+        <td style="font-weight: 600;">${f.pct_of_gross}%</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function renderIncomeStatementsTable(statements) {
+  const tbody = document.getElementById('income-statements-tbody');
+  if (!tbody) return;
+
+  const formatCurrency = (val) => {
+    const num = parseFloat(val) || 0;
+    const sign = num < 0 ? '-' : '';
+    return `${sign}₱${Math.abs(num).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
+  tbody.innerHTML = statements.map(s => {
+    const isPaid = (s.paid_status || '').toLowerCase() === 'paid';
+    const badgeClass = isPaid ? 'badge-success' : 'badge-warning';
+    const badgeText = isPaid ? 'PAID SETTLEMENT' : 'PENDING PAYS';
+
+    return `
+      <tr>
+        <td style="font-weight: 700; color: var(--text-primary);"><i class="fa-regular fa-calendar-check" style="color: #0284c7; margin-right: 6px;"></i> ${s.statement}</td>
+        <td><span class="badge ${badgeClass}">${badgeText}</span></td>
+        <td style="font-weight: 600;">${s.order_count} orders</td>
+        <td>${s.transaction_count} items</td>
+        <td style="font-weight: 600; color: #0284c7;">${formatCurrency(s.gross_sales)}</td>
+        <td style="color: #EA580C;">${formatCurrency(s.fees)}</td>
+        <td style="font-weight: 800; color: #059669; font-size: 14px;">${formatCurrency(s.net_payout)}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function renderIncomeTransactionsTable(transactions) {
+  const tbody = document.getElementById('income-tx-tbody');
+  if (!tbody) return;
+
+  const searchInput = document.getElementById('income-tx-search');
+  const typeFilter = document.getElementById('income-tx-filter-type');
+
+  const query = (searchInput ? searchInput.value : '').toLowerCase().trim();
+  const typeVal = typeFilter ? typeFilter.value : 'all';
+
+  const filtered = transactions.filter(t => {
+    if (typeVal !== 'all' && !(t.transaction_type || '').toLowerCase().includes(typeVal.toLowerCase())) {
+      return false;
+    }
+    if (query) {
+      const matchOrd = (t.order_no || '').toLowerCase().includes(query);
+      const matchSku = (t.seller_sku || '').toLowerCase().includes(query);
+      const matchFee = (t.fee_name || '').toLowerCase().includes(query);
+      const matchType = (t.transaction_type || '').toLowerCase().includes(query);
+      if (!matchOrd && !matchSku && !matchFee && !matchType) return false;
+    }
+    return true;
+  });
+
+  const formatCurrency = (val) => {
+    const num = parseFloat(val) || 0;
+    const sign = num < 0 ? '-' : '';
+    return `${sign}₱${Math.abs(num).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
+  tbody.innerHTML = filtered.slice(0, 150).map(t => {
+    const isPos = t.amount > 0;
+    const amtColor = isPos ? '#059669' : '#DC2626';
+
+    return `
+      <tr>
+        <td style="font-size: 11px; color: var(--text-muted);">${t.date}</td>
+        <td style="font-weight: 600; font-family: monospace; font-size: 12px; color: var(--text-primary);">${t.order_no}</td>
+        <td style="font-size: 11px; color: var(--text-secondary);">${t.seller_sku}</td>
+        <td style="font-weight: 600; font-size: 12px;">${t.fee_name || t.transaction_type}</td>
+        <td style="font-weight: 700; color: ${amtColor};">${formatCurrency(t.amount)}</td>
+        <td><span class="badge ${t.paid_status.toLowerCase() === 'paid' ? 'badge-success' : 'badge-warning'}" style="font-size: 10px;">${t.paid_status}</span></td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function initIncomeModule() {
+  const btns = document.querySelectorAll('.income-platform-btn');
+  btns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      btns.forEach(b => {
+        b.classList.remove('active');
+        b.style.background = 'rgba(255,255,255,0.8)';
+        b.style.color = 'var(--text-secondary)';
+        b.style.boxShadow = 'none';
+      });
+      btn.classList.add('active');
+      const p = btn.getAttribute('data-income-platform');
+      currentIncomePlatform = p;
+
+      let activeBg = '#0284c7';
+      if (p === 'tiktok') activeBg = '#111827';
+      else if (p === 'shopee') activeBg = '#EE4D2D';
+
+      btn.style.background = activeBg;
+      btn.style.color = '#fff';
+      btn.style.boxShadow = `0 2px 8px ${activeBg}4d`;
+
+      loadIncomeData();
+    });
+  });
+
+  const refreshBtn = document.getElementById('reimport-income-btn');
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', () => loadIncomeData());
+  }
+
+  const searchInput = document.getElementById('income-tx-search');
+  const typeFilter = document.getElementById('income-tx-filter-type');
+  if (searchInput) searchInput.addEventListener('input', () => {
+    if (currentIncomeData) renderIncomeTransactionsTable(currentIncomeData.transactions || []);
+  });
+  if (typeFilter) typeFilter.addEventListener('change', () => {
+    if (currentIncomeData) renderIncomeTransactionsTable(currentIncomeData.transactions || []);
+  });
+
+  const fileInput = document.getElementById('income-file-input');
+  const dropzone = document.getElementById('income-dropzone');
+
+  if (fileInput) {
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files.length > 0) {
+        uploadIncomeFile(e.target.files[0]);
+      }
+    });
+  }
+
+  if (dropzone) {
+    dropzone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropzone.style.background = 'rgba(2, 132, 199, 0.1)';
+      dropzone.style.borderColor = '#2563eb';
+    });
+
+    dropzone.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      dropzone.style.background = 'rgba(2, 132, 199, 0.03)';
+      dropzone.style.borderColor = '#0284c7';
+    });
+
+    dropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropzone.style.background = 'rgba(2, 132, 199, 0.03)';
+      dropzone.style.borderColor = '#0284c7';
+      if (e.dataTransfer.files.length > 0) {
+        uploadIncomeFile(e.dataTransfer.files[0]);
+      }
+    });
+  }
+}
+
+async function uploadIncomeFile(file) {
+  const statusDiv = document.getElementById('income-upload-status');
+  if (statusDiv) {
+    statusDiv.style.display = 'block';
+    statusDiv.className = 'status-msg loading';
+    statusDiv.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Processing and parsing <strong>${file.name}</strong>...`;
+  }
+
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('platform', currentIncomePlatform);
+
+  try {
+    const res = await fetch('/api/import-income/', {
+      method: 'POST',
+      body: formData
+    });
+    const result = await res.json();
+    if (result.success) {
+      if (statusDiv) {
+        statusDiv.className = 'status-msg success';
+        statusDiv.innerHTML = `<i class="fa-solid fa-circle-check"></i> ${result.message}`;
+      }
+      const activeFileEl = document.getElementById('income-active-filename');
+      if (activeFileEl) activeFileEl.textContent = file.name;
+      await loadIncomeData();
+    } else {
+      if (statusDiv) {
+        statusDiv.className = 'status-msg error';
+        statusDiv.innerHTML = `<i class="fa-solid fa-circle-xmark"></i> ${result.error || 'Upload failed'}`;
+      }
+    }
+  } catch (e) {
+    if (statusDiv) {
+      statusDiv.className = 'status-msg error';
+      statusDiv.innerHTML = `<i class="fa-solid fa-circle-xmark"></i> Error uploading file: ${e.message}`;
+    }
+  }
+}
+
 
