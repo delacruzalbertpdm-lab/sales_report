@@ -861,8 +861,11 @@
               <p style="font-size: 13px; color: var(--text-muted); margin-top: 6px;">Real-time payout reconciliation, platform commissions, voucher subsidies, and daily net revenue breakdown.</p>
             </div>
             <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-              <button class="income-platform-btn active" data-income-platform="lazada" onclick="switchIncomePlatform('lazada')" style="background: #0284c7; color: #fff; border: none; padding: 8px 16px; border-radius: var(--radius-md); font-weight: 700; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 2px 8px rgba(2, 132, 199, 0.3);">
-                <i class="fa-solid fa-shopping-bag"></i> 💙 Lazada Income (September 2026)
+              <button class="income-platform-btn active" data-income-platform="all" onclick="switchIncomePlatform('all')" style="background: linear-gradient(135deg, #6366f1, #4f46e5); color: #fff; border: none; padding: 8px 16px; border-radius: var(--radius-md); font-weight: 700; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);">
+                <i class="fa-solid fa-globe"></i> 🌐 All Platforms (Combined Income)
+              </button>
+              <button class="income-platform-btn" data-income-platform="lazada" onclick="switchIncomePlatform('lazada')" style="background: rgba(255,255,255,0.8); color: var(--text-secondary); border: 1px solid var(--border-color); padding: 8px 16px; border-radius: var(--radius-md); font-weight: 600; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-shopping-bag" style="color: #0284c7;"></i> 💙 Lazada Income
               </button>
               <button class="income-platform-btn" data-income-platform="shopee" onclick="switchIncomePlatform('shopee')" style="background: rgba(255,255,255,0.8); color: var(--text-secondary); border: 1px solid var(--border-color); padding: 8px 16px; border-radius: var(--radius-md); font-weight: 600; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
                 <i class="fa-solid fa-store" style="color: var(--shopee-orange);"></i> 🟠 Shopee Income
@@ -1125,7 +1128,7 @@
     </main>
   </div>
 
-  <script src="app.js?v=20260929_v5"></script>
+  <script src="app.js?v=20260929_v7"></script>
 </body>
 
 </html>

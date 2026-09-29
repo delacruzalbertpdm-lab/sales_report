@@ -2422,8 +2422,12 @@ function renderIncomeModule(data) {
 
   const activeFileEl = document.getElementById('income-active-filename');
   if (activeFileEl) {
-    let filename = currentIncomePlatform === 'tiktok' ? 'income_tiktok_sept.xlsx' : (currentIncomePlatform === 'lazada' ? 'income_lazada_sept.xlsx' : 'Income Statement');
-    if (data.transactions && data.transactions.length > 0 && data.transactions[0].source_file) {
+    let filename = 'Consolidated Multi-Platform Settlement (All Stores)';
+    if (currentIncomePlatform === 'tiktok') filename = 'income_tiktok_sept.xlsx';
+    else if (currentIncomePlatform === 'lazada') filename = 'income_lazada_sept.xlsx';
+    else if (currentIncomePlatform === 'shopee') filename = 'Shopee Income Statement';
+
+    if (currentIncomePlatform !== 'all' && data.transactions && data.transactions.length > 0 && data.transactions[0].source_file) {
       filename = data.transactions[0].source_file;
     }
     activeFileEl.textContent = filename;
@@ -2667,13 +2671,14 @@ window.switchIncomePlatform = function(platform) {
     const p = b.getAttribute('data-income-platform');
     if (p === platform) {
       b.classList.add('active');
-      let activeBg = '#0284c7';
-      if (p === 'tiktok') activeBg = '#111827';
+      let activeBg = 'linear-gradient(135deg, #6366f1, #4f46e5)';
+      if (p === 'lazada') activeBg = '#0284c7';
+      else if (p === 'tiktok') activeBg = '#111827';
       else if (p === 'shopee') activeBg = '#EE4D2D';
 
       b.style.background = activeBg;
       b.style.color = '#fff';
-      b.style.boxShadow = `0 2px 8px ${activeBg}4d`;
+      b.style.boxShadow = '0 2px 8px rgba(99, 102, 241, 0.3)';
     } else {
       b.classList.remove('active');
       b.style.background = 'rgba(255,255,255,0.8)';
