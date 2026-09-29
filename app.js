@@ -2661,29 +2661,37 @@ function renderIncomeTransactionsTable(transactions) {
   }).join('');
 }
 
-function initIncomeModule() {
+window.switchIncomePlatform = function(platform) {
   const btns = document.querySelectorAll('.income-platform-btn');
-  btns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      btns.forEach(b => {
-        b.classList.remove('active');
-        b.style.background = 'rgba(255,255,255,0.8)';
-        b.style.color = 'var(--text-secondary)';
-        b.style.boxShadow = 'none';
-      });
-      btn.classList.add('active');
-      const p = btn.getAttribute('data-income-platform');
-      currentIncomePlatform = p;
-
+  btns.forEach(b => {
+    const p = b.getAttribute('data-income-platform');
+    if (p === platform) {
+      b.classList.add('active');
       let activeBg = '#0284c7';
       if (p === 'tiktok') activeBg = '#111827';
       else if (p === 'shopee') activeBg = '#EE4D2D';
 
-      btn.style.background = activeBg;
-      btn.style.color = '#fff';
-      btn.style.boxShadow = `0 2px 8px ${activeBg}4d`;
+      b.style.background = activeBg;
+      b.style.color = '#fff';
+      b.style.boxShadow = `0 2px 8px ${activeBg}4d`;
+    } else {
+      b.classList.remove('active');
+      b.style.background = 'rgba(255,255,255,0.8)';
+      b.style.color = 'var(--text-secondary)';
+      b.style.boxShadow = 'none';
+    }
+  });
 
-      loadIncomeData();
+  currentIncomePlatform = platform;
+  loadIncomeData();
+};
+
+function initIncomeModule() {
+  const btns = document.querySelectorAll('.income-platform-btn');
+  btns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const p = btn.getAttribute('data-income-platform');
+      switchIncomePlatform(p);
     });
   });
 
