@@ -85,4 +85,12 @@ class Command(BaseCommand):
                     )
                     count += 1
 
+        # 4. Auto-seed Income Transactions (Lazada & TikTok)
+        try:
+            from analytics.views import auto_seed_income_if_empty
+            auto_seed_income_if_empty()
+            self.stdout.write(self.style.SUCCESS("Auto-seeded income transactions for Lazada & TikTok!"))
+        except Exception as e:
+            self.stdout.write(self.style.WARNING(f"Income auto-seed notice: {e}"))
+
         self.stdout.write(self.style.SUCCESS(f"Successfully seeded {count} daily metrics into SQLite database!"))
