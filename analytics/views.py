@@ -616,6 +616,89 @@ def parse_and_save_income_excel(file_source, filename, platform='lazada'):
 
         return len(records_to_create), tot_gross, tot_net
 
+    if platform == 'shopee' or 'Paid Order' in xl.sheet_names:
+        sheet_to_read = 'Paid Order' if 'Paid Order' in xl.sheet_names else xl.sheet_names[0]
+        df = xl.parse(sheet_to_read)
+        if df.empty or len(df) < 4:
+            return 0, 0.0, 0.0
+
+        df_data = df.iloc[3:].copy()
+        df_data.columns = [str(c).strip() for c in df.iloc[2].values]
+
+        records_to_create = []
+        tot_gross = 0.0
+        tot_net = 0.0
+        stmt_name = f"Shopee Estimated Settlement ({filename})"
+
+        for idx, row in df_data.iterrows():
+            d_str = str(row.get('Date', '')).strip()
+            if not d_str or d_str == 'nan':
+                continue
+            try:
+                d_obj = pd.to_datetime(d_str, format='%d/%m/%Y').date()
+            except:
+                try:
+                    d_obj = pd.to_datetime(d_str).date()
+                except:
+                    continue
+
+            sales_val = clean_num(row.get('Sales (PHP)')) if 'Sales (PHP)' in row else 0.0
+            orders_val = int(clean_num(row.get('Orders'))) if 'Orders' in row else 0
+
+            if sales_val > 0:
+                tot_gross += sales_val
+                tot_net += sales_val
+                date_tag = d_obj.strftime('%Y%m%d')
+
+                # Paid Sales Revenue
+                records_to_create.append(IncomeTransaction(
+                    platform='shopee',
+                    transaction_date=d_obj,
+                    transaction_type='Order Sales',
+                    fee_name='Order Gross Sales',
+                    transaction_number=f"SHOPEE-{date_tag}",
+                    details=f"Shopee Paid Sales for {d_obj} ({orders_val} orders)",
+                    amount=sales_val,
+                    statement=stmt_name,
+                    paid_status='paid',
+                    order_no=f"SHOPEE-{date_tag}",
+                    source_file=filename
+                ))
+
+                # Standard Shopee Fee deduction breakdown:
+                # Commission Fee (5.60%), Transaction Fee (2.24%), Service Fee (4.16%)
+                f_comm = round(sales_val * 0.0560, 2)
+                f_tx = round(sales_val * 0.0224, 2)
+                f_serv = round(sales_val * 0.0416, 2)
+
+                fees_list = [
+                    ('Shopee Commission Fee (5.6%)', -f_comm, 'Platform Fee'),
+                    ('Shopee Transaction Fee (2.24%)', -f_tx, 'Platform Fee'),
+                    ('Shopee Service Fee / FSM (4.16%)', -f_serv, 'Service Fee')
+                ]
+
+                for fname, fval, fcat in fees_list:
+                    tot_net += fval
+                    records_to_create.append(IncomeTransaction(
+                        platform='shopee',
+                        transaction_date=d_obj,
+                        transaction_type=fcat,
+                        fee_name=fname,
+                        transaction_number=f"SHOPEE-{date_tag}",
+                        details=f"{fname} for {d_obj}",
+                        amount=fval,
+                        statement=stmt_name,
+                        paid_status='paid',
+                        order_no=f"SHOPEE-{date_tag}",
+                        source_file=filename
+                    ))
+
+        if records_to_create:
+            IncomeTransaction.objects.filter(platform='shopee', source_file=filename).delete()
+            IncomeTransaction.objects.bulk_create(records_to_create)
+
+        return len(records_to_create), tot_gross, tot_net
+
     # Default Lazada statement parser
     sheet_to_read = xl.sheet_names[0]
     for s in xl.sheet_names:
@@ -760,6 +843,21 @@ def auto_seed_income_if_empty():
                     break
                 except Exception as e:
                     print("Auto seed TikTok income error:", e)
+
+    # 3. Shopee Income Auto-seed
+    if not IncomeTransaction.objects.filter(platform='shopee').exists():
+        possible_shopee = [
+            settings.BASE_DIR / 'shopee_shop_stats_sept.xlsx',
+            Path.home() / 'Downloads' / 'firstprotectph.shopee-shop-stats.20260901-20260928.xlsx'
+        ]
+        for p in possible_shopee:
+            if p.exists():
+                try:
+                    parse_and_save_income_excel(p, 'shopee_shop_stats_sept.xlsx', platform='shopee')
+                    print("Auto-seeded Shopee income from:", p)
+                    break
+                except Exception as e:
+                    print("Auto seed Shopee income error:", e)
 
 def get_income_json(platform='lazada', month_filter=None):
     auto_seed_income_if_empty()
